@@ -5,6 +5,7 @@
 # /public/products
 public
 storage
+resources
 # /public/img
 # /public/library
 # /storage/*.key
