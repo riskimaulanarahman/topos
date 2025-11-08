@@ -4,6 +4,7 @@
 # /public/hot
 # /public/products
 public
+storage
 # /public/img
 # /public/library
 # /storage/*.key
