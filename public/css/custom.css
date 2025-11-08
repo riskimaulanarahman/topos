@@ -1,0 +1,109 @@
+.profile-container {
+    width: 100%;
+    max-width: 100%;
+    padding: 0;
+    margin: 0;
+}
+.profile-card {
+    width: 100%;
+    border-radius: 15px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin: 20px;
+    padding: 20px;
+}
+/* Theme override based on toga-gold-ts.png (gold primary) */
+:root {
+    --gold-primary: #C9A227; /* golden */
+    --gold-primary-dark: #b08e1f;
+}
+
+a { color: var(--gold-primary); }
+
+.btn-primary,
+.btn-primary:focus {
+    background-color: var(--gold-primary) !important;
+    border-color: var(--gold-primary) !important;
+}
+.btn-primary:hover {
+    background-color: var(--gold-primary-dark) !important;
+    border-color: var(--gold-primary-dark) !important;
+}
+
+.bg-primary { background-color: var(--gold-primary) !important; }
+.text-primary { color: var(--gold-primary) !important; }
+.badge-primary { background-color: var(--gold-primary) !important; }
+.navbar-bg { background-color: var(--gold-primary) !important; }
+.sidebar-brand a { color: var(--gold-primary) !important; }
+.sidebar-menu .active > a {
+    color: var(--gold-primary) !important;
+}
+.sidebar-menu li a:hover {
+    color: var(--gold-primary) !important;
+}
+
+.subscription-alert-floating {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    z-index: 1030;
+    width: calc(100% - 32px);
+}
+
+@media (min-width: 768px) {
+    .subscription-alert-floating {
+        left: auto;
+        max-width: 380px;
+        width: auto;
+    }
+}
+
+.modal-backdrop {
+    z-index: 0 !important;
+    opacity: 0 !important;
+}
+
+.modal {
+    z-index: 1050 !important;
+}
+
+.pricing-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    background-color: #fff;
+}
+
+.pricing-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.08);
+}
+
+.pricing-card__header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.columns-2 {
+    column-count: 2;
+    column-gap: 1.25rem;
+}
+
+.columns-2 .custom-control {
+    display: block;
+    break-inside: avoid-column;
+}
+
+dialog.option-import-dialog {
+    border: none;
+    border-radius: 0.75rem;
+    padding: 1.75rem;
+    max-width: 420px;
+    width: min(420px, 90vw);
+    box-shadow: 0 20px 45px rgba(15, 23, 42, 0.18);
+}
+
+dialog.option-import-dialog::backdrop {
+    background: rgba(15, 23, 42, 0.45);
+}
+
+dialog.option-import-dialog form {
+    margin: 0;
+}

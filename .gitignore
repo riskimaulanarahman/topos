@@ -3,13 +3,12 @@
 # /public/build
 # /public/hot
 # /public/products
-public
-storage
-resources
+# Keep product assets excluded, but track the rest of public/
+public/products/
 # /public/img
 # /public/library
 # /storage/*.key
-vendor
+# vendor stays tracked
 .env
 # .env.backup
 # .env.production

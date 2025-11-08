@@ -1,0 +1,341 @@
+openapi: 3.0.3
+info:
+  title: Roar POS API - Enhancements
+  version: 1.0.0
+  description: |
+    API untuk modul Pemasukan/Pengeluaran, Bahan Pokok & Stok, Resep Produk (HPP), Manajemen Karyawan & Absensi.
+servers:
+  - url: /api
+paths:
+  /auth/pin-login:
+    post:
+      summary: Login karyawan via PIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone_or_email, pin]
+              properties:
+                phone_or_email: { type: string, example: staff@example.com }
+                pin: { type: string, example: "1234" }
+      responses:
+        '200':
+          description: OK
+        '401':
+          description: PIN salah
+  /incomes:
+    get:
+      summary: List pemasukan
+      parameters:
+        - in: query
+          name: date_from
+          schema: { type: string, format: date }
+        - in: query
+          name: date_to
+          schema: { type: string, format: date }
+        - in: query
+          name: category_id
+          schema: { type: integer }
+      responses:
+        '200': { description: OK }
+    post:
+      summary: Buat pemasukan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date, amount]
+              properties:
+                date: { type: string, format: date }
+                amount: { type: number, format: float }
+                category_id: { type: integer, nullable: true }
+                notes: { type: string, nullable: true }
+      responses:
+        '200': { description: Created }
+  /incomes/{id}:
+    get:
+      summary: Detail pemasukan
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: OK }
+    put:
+      summary: Update pemasukan
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date: { type: string, format: date }
+                amount: { type: number, format: float }
+                category_id: { type: integer, nullable: true }
+                notes: { type: string, nullable: true }
+      responses:
+        '200': { description: OK }
+    delete:
+      summary: Hapus pemasukan
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Deleted }
+  /expenses:
+    get:
+      summary: List pengeluaran
+      responses:
+        '200': { description: OK }
+    post:
+      summary: Buat pengeluaran
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date, amount]
+              properties:
+                date: { type: string, format: date }
+                amount: { type: number, format: float }
+                category_id: { type: integer, nullable: true }
+                vendor: { type: string, nullable: true }
+                notes: { type: string, nullable: true }
+      responses:
+        '200': { description: Created }
+  /expenses/{id}:
+    get:
+      summary: Detail pengeluaran
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: OK }
+    put:
+      summary: Update pengeluaran
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                date: { type: string, format: date }
+                amount: { type: number, format: float }
+                category_id: { type: integer, nullable: true }
+                vendor: { type: string, nullable: true }
+                notes: { type: string, nullable: true }
+      responses:
+        '200': { description: OK }
+    delete:
+      summary: Hapus pengeluaran
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: Deleted }
+  /income-categories:
+    get: { summary: List kategori pemasukan, responses: { '200': { description: OK } } }
+    post:
+      summary: Buat kategori pemasukan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                description: { type: string, nullable: true }
+      responses:
+        '201': { description: Created }
+  /expense-categories:
+    get: { summary: List kategori pengeluaran, responses: { '200': { description: OK } } }
+    post:
+      summary: Buat kategori pengeluaran
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                description: { type: string, nullable: true }
+      responses:
+        '201': { description: Created }
+  /raw-materials:
+    get:
+      summary: List bahan pokok
+      parameters:
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: low_stock_only
+          schema: { type: boolean }
+      responses:
+        '200': { description: OK }
+    post:
+      summary: Buat bahan pokok
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sku,name,unit,unit_cost]
+              properties:
+                sku: { type: string }
+                name: { type: string }
+                unit: { type: string, enum: [g,ml,pcs,kg,l] }
+                unit_cost: { type: number }
+                stock_qty: { type: number }
+                min_stock: { type: number }
+      responses:
+        '201': { description: Created }
+  /raw-materials/{id}:
+    put:
+      summary: Update bahan pokok
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        '200': { description: OK }
+  /raw-materials/{id}/adjust-stock:
+    post:
+      summary: Penyesuaian stok bahan
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [qty_change]
+              properties:
+                qty_change: { type: number }
+                unit_cost: { type: number, nullable: true }
+                notes: { type: string, nullable: true }
+      responses:
+        '200': { description: OK }
+  /raw-materials/{id}/movements:
+    get:
+      summary: List pergerakan stok bahan
+      responses:
+        '200': { description: OK }
+  /products/{id}/recipe:
+    get: { summary: Lihat resep, responses: { '200': { description: OK } } }
+    post:
+      summary: Simpan resep produk
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [yield_qty, items]
+              properties:
+                yield_qty: { type: number }
+                unit: { type: string }
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [raw_material_id, qty_per_yield]
+                    properties:
+                      raw_material_id: { type: integer }
+                      qty_per_yield: { type: number }
+                      waste_pct: { type: number }
+      responses:
+        '200': { description: OK }
+  /products/{id}/cogs:
+    get: { summary: Hitung HPP saat ini, responses: { '200': { description: OK } } }
+  /employees:
+    get: { summary: List karyawan (admin), responses: { '200': { description: OK } } }
+    post:
+      summary: Buat karyawan (admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name,email,pin,role]
+              properties:
+                name: { type: string }
+                email: { type: string }
+                phone: { type: string }
+                pin: { type: string }
+                role: { type: string, enum: [owner,manager,staff] }
+      responses:
+        '201': { description: Created }
+  /employees/{id}:
+    put: { summary: Update karyawan, responses: { '200': { description: OK } } }
+  /employees/{id}/activate:
+    patch: { summary: Aktifkan karyawan, responses: { '200': { description: OK } } }
+  /employees/{id}/deactivate:
+    patch: { summary: Nonaktifkan karyawan, responses: { '200': { description: OK } } }
+  /employees/me:
+    get: { summary: Profil karyawan (employee token), responses: { '200': { description: OK } } }
+  /attendances/me:
+    get: { summary: Riwayat absensi saya, responses: { '200': { description: OK } } }
+  /attendances/clock-in:
+    post: { summary: Clock-in, responses: { '200': { description: OK } } }
+  /attendances/clock-out:
+    post: { summary: Clock-out, responses: { '200': { description: OK } } }
+  /reports/attendances:
+    get:
+      summary: Laporan absensi (admin). Tambahkan query format=csv untuk export.
+      parameters:
+        - in: query
+          name: date_from
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: date_to
+          required: true
+          schema: { type: string, format: date }
+        - in: query
+          name: employee_id
+          schema: { type: integer }
+        - in: query
+          name: format
+          schema: { type: string, enum: [json, csv] }
+      responses:
+        '200': { description: OK }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: "Sanctum"
+security:
+  - bearerAuth: []
+
