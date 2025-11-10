@@ -99,10 +99,44 @@
             <tr><td style="padding: 4px 0; width: 45%;">Modal awal</td><td style="padding: 4px 0;">Rp{{ number_format($cashBalance['opening'] ?? 0, 0, ',', '.') }}</td></tr>
             <tr><td style="padding: 4px 0;">Penjualan cash</td><td style="padding: 4px 0;">Rp{{ number_format($cashBalance['cash_sales'] ?? 0, 0, ',', '.') }}</td></tr>
             <tr><td style="padding: 4px 0;">Refund cash</td><td style="padding: 4px 0;">Rp{{ number_format($cashBalance['cash_refunds'] ?? 0, 0, ',', '.') }}</td></tr>
+            <tr><td style="padding: 4px 0; font-weight: 600;">Pengeluaran kasir</td><td style="padding: 4px 0; font-weight: 600; color: #DC2626;">-Rp{{ number_format($cashBalance['cash_outflows'] ?? 0, 0, ',', '.') }}</td></tr>
             <tr><td style="padding: 4px 0;">Estimasi kas</td><td style="padding: 4px 0;">Rp{{ number_format($cashBalance['expected'] ?? 0, 0, ',', '.') }}</td></tr>
             <tr><td style="padding: 4px 0;">Kas dihitung</td><td style="padding: 4px 0;">Rp{{ number_format($cashBalance['counted'] ?? 0, 0, ',', '.') }}</td></tr>
         </table>
     </div>
+
+    @if(!empty($outflows['by_category']))
+        <div style="margin-bottom: 16px;">
+            <div style="font-weight: 600; color: #111827; font-size: 15px; margin-bottom: 8px;">Detail Pengeluaran Kasir</div>
+            <p style="margin: 0 0 8px; font-size: 14px; color: #6B7280;">
+                Total pengeluaran: {{ $outflows['count'] ?? 0 }} transaksi • Nilai: Rp{{ number_format($outflows['total'] ?? 0, 0, ',', '.') }}
+            </p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size: 14px; color: #374151; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th align="left" style="border-bottom: 1px solid #E5E7EB; padding: 8px 0;">Kategori</th>
+                        <th align="right" style="border-bottom: 1px solid #E5E7EB; padding: 8px 0;">Jumlah</th>
+                        <th align="right" style="border-bottom: 1px solid #E5E7EB; padding: 8px 0;">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($outflows['by_category'] as $outflow)
+                        <tr>
+                            <td style="padding: 8px 0; border-bottom: 1px dashed #E5E7EB;">
+                                <div style="font-weight: 600;">{{ $outflow['label'] ?? ucfirst($outflow['category']) }}</div>
+                            </td>
+                            <td align="right" style="padding: 8px 0; border-bottom: 1px dashed #E5E7EB;">
+                                {{ $outflow['count'] ?? 0 }}x
+                            </td>
+                            <td align="right" style="padding: 8px 0; border-bottom: 1px dashed #E5E7EB; color: #DC2626; font-weight: 600;">
+                                -Rp{{ number_format($outflow['total'] ?? 0, 0, ',', '.') }}
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
 
     <div>
         <div style="font-weight: 600; color: #111827; font-size: 15px; margin-bottom: 8px;">Rincian Pembayaran</div>

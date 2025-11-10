@@ -30,6 +30,7 @@ class CashierSummaryNotification extends Notification implements ShouldQueue
         $payments = $summary['payments'] ?? [];
         $transactions = $summary['transactions'] ?? [];
         $cashBalance = $summary['cash_balance'] ?? [];
+        $outflows = $summary['outflows'] ?? [];
         $salesItems = collect($summary['sales_items'] ?? []);
         $productItems = $salesItems->filter(fn ($item) => empty($item['is_addon']))->values()->all();
         $addonItems = $salesItems->filter(fn ($item) => !empty($item['is_addon']))->values()->all();
@@ -62,6 +63,7 @@ class CashierSummaryNotification extends Notification implements ShouldQueue
                 'payments' => $payments,
                 'transactions' => $transactions,
                 'cashBalance' => $cashBalance,
+                'outflows' => $outflows,
                 'sessionTimezone' => $sessionTimezone,
                 'sessionTimezoneOffset' => $timezoneOffset,
                 'productSalesItems' => $productItems,
