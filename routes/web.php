@@ -142,9 +142,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/profile', [\App\Http\Controllers\ProfileController::class, 'index'])->name('profile.index');
         Route::put('/profile', [\App\Http\Controllers\ProfileController::class, 'update'])->name('profile.update');
 
-        Route::get('/product_sales', [\App\Http\Controllers\ProductSalesController::class, 'index'])->name('product_sales.index');
-        Route::get('/product_sales/filter', [\App\Http\Controllers\ProductSalesController::class, 'productSales'])->name('productSales.index');
-        Route::get('/product_sales/download', [\App\Http\Controllers\ProductSalesController::class,'download'])->name('productSales.download');
+        // Product Sales Report - Simplified
+        Route::get('/report/product-sales', [\App\Http\Controllers\ProductSalesController::class, 'index'])->name('report.product-sales');
+        Route::get('/report/product-sales/filter', [\App\Http\Controllers\ProductSalesController::class, 'filter'])->name('report.product-sales.filter');
+        Route::get('/report/product-sales/download', [\App\Http\Controllers\ProductSalesController::class,'download'])->name('report.product-sales.download');
 
         // Route::get('/finance-masuk', [\App\Http\Controllers\FinanceController::class, 'index'])->name('finance.masuk');
         // Income & Expenses are available to authenticated users (web-only module)

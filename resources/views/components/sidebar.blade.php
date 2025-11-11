@@ -23,7 +23,7 @@
                 || Request::is('products/*/recipe*')
                 || Request::is('products/*/produce*')
                 || Request::is('catalog-duplication*');
-            $reportsActive = Request::is('report*') || Request::is('summary*') || Request::is('product_sales*');
+            $reportsActive = Request::is('report*') || Request::is('summary*') || Request::is('report/product-sales*');
             $productMenuActive = Request::is('product') || Request::is('product/*') || Request::is('product-options*');
         @endphp
 
@@ -221,6 +221,11 @@
                         <li class="{{ Request::is('report') || Request::is('report/filter') ? 'active' : '' }}">
                             <a class="nav-link" href="{{ route('report.index') }}">
                                 <i class="fas fa-book-open"></i> <span>Ringkasan Order</span>
+                            </a>
+                        </li>
+                        <li class="{{ Request::is('report/product-sales*') ? 'active' : '' }}">
+                            <a class="nav-link" href="{{ route('report.product-sales') }}">
+                                <i class="fas fa-box"></i> <span>Product Sales</span>
                             </a>
                         </li>
                         <li class="{{ Request::is('report/by-category*') ? 'active' : '' }}">
