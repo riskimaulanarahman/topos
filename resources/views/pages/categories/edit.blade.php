@@ -43,13 +43,40 @@
                                     class="form-control @error('name')
                                 is-invalid
                             @enderror"
-                                    name="name" value="{{ $category->name }}">
+                                    name="name" value="{{ old('name', $category->name) }}">
                                 @error('name')
                                     <div class="invalid-feedback">
                                         {{ $message }}
                                     </div>
                                 @enderror
                             </div>
+                            
+                            <div class="form-group">
+                                <label>Parent Category</label>
+                                <select name="parent_id" class="form-control @error('parent_id') is-invalid @enderror">
+                                    <option value="">Main Category (No Parent)</option>
+                                    @if(isset($parentCategories))
+                                        @foreach($parentCategories as $parentCategory)
+                                            <option value="{{ $parentCategory->id }}"
+                                                {{ old('parent_id', $category->parent_id) == $parentCategory->id ? 'selected' : '' }}>
+                                                {{ $parentCategory->name }}
+                                            </option>
+                                        @endforeach
+                                    @endif
+                                </select>
+                                @error('parent_id')
+                                    <div class="invalid-feedback">
+                                        {{ $message }}
+                                    </div>
+                                @enderror
+                                <small class="form-text text-muted">Select a parent category to make this a subcategory, or leave empty for a main category.</small>
+                                @if($category->parent_id)
+                                    <div class="alert alert-info mt-2">
+                                        <small><strong>Current Parent:</strong> {{ $category->parent->name }}</small>
+                                    </div>
+                                @endif
+                            </div>
+                            
                             <div class="form-group">
                                 <label class="form-label mt-4">Image</label>
                                 <div class="col-sm-9">
@@ -57,6 +84,12 @@
                                         @error('image') is-invalid @enderror>
                                 </div>
                                 <small class="form-text text-muted">File image max 2 MB.</small>
+                                @if($category->image)
+                                    <div class="mt-2">
+                                        <small><strong>Current Image:</strong></small><br>
+                                        <img src="{{ asset('storage/categories/'.$category->image) }}" alt="{{ $category->name }}" width="100px" class="img-thumbnail">
+                                    </div>
+                                @endif
                             </div>
                         </div>
                         <div class="card-footer text-right">

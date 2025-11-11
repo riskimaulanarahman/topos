@@ -87,9 +87,7 @@ class ProductController extends Controller
             ]);
         }
 
-        $categories = Category::whereIn('user_id', $context['owner_user_ids'])
-            ->orderBy('name', 'asc')
-            ->get();
+        $categories = Category::getFlattenedList(null, '', null);
         $materials = RawMaterial::query()
             ->accessibleBy(auth()->user())
             ->where('unit_cost', '>', 0)
@@ -224,9 +222,7 @@ class ProductController extends Controller
         $product = Product::where('user_id', $userId)
             ->with(['optionGroups.optionGroup', 'optionGroups.optionItems.optionItem'])
             ->findOrFail($id);
-        $categories = Category::whereIn('user_id', $context['owner_user_ids'])
-            ->orderBy('name', 'asc')
-            ->get();
+        $categories = Category::getFlattenedList(null, '', null);
         $recipe = ProductRecipe::with('items')->where('product_id', $product->id)->first();
         $materials = RawMaterial::query()
             ->accessibleBy(auth()->user())
@@ -641,7 +637,8 @@ class ProductController extends Controller
         $accessibleCategoryIds = $context['accessible_category_ids'];
         $isPartner = $context['is_partner'] ?? false;
 
-        $query = Category::whereIn('user_id', $ownerUserIds)->orderBy('name');
+        // Get all categories first
+        $query = Category::whereIn('user_id', $ownerUserIds);
 
         if ($this->shouldFilterCategories($accessibleCategoryIds)) {
             $query->whereIn('id', $accessibleCategoryIds);
@@ -649,7 +646,55 @@ class ProductController extends Controller
             return collect();
         }
 
-        return $query->get();
+        $allCategories = $query->orderBy('name')->get();
+        
+        // Filter and flatten for dropdown display
+        if ($this->shouldFilterCategories($accessibleCategoryIds)) {
+            $filteredCategories = $allCategories->filter(function ($category) use ($accessibleCategoryIds) {
+                return in_array($category->id, $accessibleCategoryIds);
+            });
+            
+            // Create flattened list with proper hierarchy
+            $flattened = collect();
+            $rootCategories = $filteredCategories->filter(function ($cat) {
+                return is_null($cat->parent_id) || !in_array($cat->parent_id, $accessibleCategoryIds);
+            })->sortBy('name');
+            
+            foreach ($rootCategories as $root) {
+                $flattened->push((object) [
+                    'id' => $root->id,
+                    'name' => $root->name,
+                    'level' => 0,
+                ]);
+                
+                $this->addChildrenToFlattenedList($flattened, $root, $filteredCategories, 1);
+            }
+            
+            return $flattened;
+        } else {
+            // Return all categories in flattened format
+            return Category::getFlattenedList();
+        }
+    }
+    
+    /**
+     * Helper method to add children to flattened list recursively
+     */
+    private function addChildrenToFlattenedList(&$flattened, $parent, $allCategories, $level)
+    {
+        $children = $allCategories->filter(function ($cat) use ($parent) {
+            return $cat->parent_id == $parent->id;
+        })->sortBy('name');
+        
+        foreach ($children as $child) {
+            $flattened->push((object) [
+                'id' => $child->id,
+                'name' => str_repeat('─ ', $level) . $child->name,
+                'level' => $level,
+            ]);
+            
+            $this->addChildrenToFlattenedList($flattened, $child, $allCategories, $level + 1);
+        }
     }
 
     private function sanitizeRecipeInput(Request $request): void

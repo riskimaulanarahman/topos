@@ -280,6 +280,13 @@ class ReportController extends Controller
         $hasCategoryColumn = $this->hasProductCategoryColumn();
 
         if ($date_from && $date_to && $hasCategoryColumn) {
+            // Get all categories (including subcategories)
+            $allCategories = Category::whereIn('user_id', $ownerUserIds)
+                ->when($this->shouldFilterCategories($accessibleCategoryIds), fn($q) => $q->whereIn('id', $accessibleCategoryIds))
+                ->orderBy('name')
+                ->get(['id','name','parent_id']);
+            
+            // Get flat sales data for all categories
             $base = OrderItem::select([
                     'categories.id as category_id',
                     'categories.name as category_name',
@@ -296,18 +303,24 @@ class ReportController extends Controller
                 ->when($this->shouldFilterCategories($accessibleCategoryIds), function ($q) use ($accessibleCategoryIds) {
                     $q->whereIn('products.category_id', $accessibleCategoryIds);
                 })
-                ->when(!empty($categoryIds), function ($q) use ($categoryIds) {
-                    $q->whereIn('products.category_id', $categoryIds);
+                ->when(!empty($categoryIds), function ($q) use ($categoryIds, $allCategories) {
+                    // Include selected categories AND all their descendants
+                    $allCategoryIds = $this->getAllCategoryIdsWithChildren($categoryIds, $allCategories);
+                    $q->whereIn('products.category_id', $allCategoryIds);
                 })
                 ->groupBy('categories.id','categories.name')
-                ->orderByDesc('total_price');
+                ->orderByDesc('total_price')
+                ->get();
 
-            $categorySales = $base->get();
-
+            // Build hierarchical structure
+            $categorySales = collect($this->buildCategoryHierarchy($base, $allCategories));
+            
+            // Prepare chart data (parents only by default)
+            $chartData = $this->flattenHierarchyForChart($categorySales->toArray(), false);
             $chart = [
-                'labels' => $categorySales->pluck('category_name'),
-                'quantity' => $categorySales->pluck('total_quantity'),
-                'revenue' => $categorySales->pluck('total_price'),
+                'labels' => $chartData->pluck('name'),
+                'quantity' => $chartData->pluck('quantity'),
+                'revenue' => $chartData->pluck('revenue'),
             ];
         }
 
@@ -409,6 +422,14 @@ class ReportController extends Controller
             );
         }
 
+        // Get all categories to build hierarchy
+        $allCategories = Category::whereIn('user_id', $ownerUserIds)
+            ->when($this->shouldFilterCategories($accessibleCategoryIds), fn($q) => $q->whereIn('id', $accessibleCategoryIds))
+            ->get(['id','name','parent_id']);
+        
+        // Build category map for hierarchy info
+        $categoryMap = $allCategories->keyBy('id');
+        
         $rows = OrderItem::query()
             ->join('orders', 'order_items.order_id', '=', 'orders.id')
             ->join('products', 'order_items.product_id', '=', 'products.id')
@@ -420,7 +441,11 @@ class ReportController extends Controller
             ->when($this->shouldFilterCategories($accessibleCategoryIds), function ($q) use ($accessibleCategoryIds) {
                 $q->whereIn('products.category_id', $accessibleCategoryIds);
             })
-            ->when(!empty($categoryIds), fn($q) => $q->whereIn('products.category_id', $categoryIds))
+            ->when(!empty($categoryIds), function ($q) use ($categoryIds, $allCategories) {
+                // Include selected categories AND all their descendants
+                $allCategoryIds = $this->getAllCategoryIdsWithChildren($categoryIds, $allCategories);
+                $q->whereIn('products.category_id', $allCategoryIds);
+            })
             ->orderBy('orders.created_at', 'desc')
             ->get([
                 'orders.id as order_id',
@@ -432,7 +457,22 @@ class ReportController extends Controller
                 DB::raw('ROUND(order_items.total_price / NULLIF(order_items.quantity, 0)) as unit_price'),
                 'products.name as product_name',
                 'categories.name as category_name',
+                'categories.id as category_id',
             ]);
+        
+        // Add hierarchy information to each row
+        $rows = $rows->map(function($row) use ($categoryMap) {
+            $category = $categoryMap->get($row->category_id);
+            $row->category_level = 0;
+            $row->category_path = $row->category_name;
+            
+            if ($category && $category->parent_id) {
+                $row->category_level = $this->getCategoryLevel($category, $categoryMap);
+                $row->category_path = $this->getCategoryPath($category, $categoryMap);
+            }
+            
+            return $row;
+        });
 
         $categoryName = 'Semua Kategori';
         if (count($categoryIds) === 1) {
@@ -458,6 +498,8 @@ class ReportController extends Controller
                     'quantity' => (int) $r->quantity,
                     'price' => (int) ($r->unit_price ?? 0),
                     'total_price' => (int) $r->total_price,
+                    'category_level' => $r->category_level ?? 0,
+                    'category_path' => $r->category_path ?? $r->category_name,
                 ];
             })->values(),
         ];
@@ -933,5 +975,164 @@ class ReportController extends Controller
         }
 
         return $cached;
+    }
+
+    /**
+     * Build hierarchical category structure from flat sales data
+     */
+    private function buildCategoryHierarchy($flatSales, $categories)
+    {
+        // Create category map with hierarchy info
+        $categoryMap = [];
+        $rootCategories = [];
+        
+        // Initialize all categories in map
+        foreach ($categories as $category) {
+            $categoryMap[$category->id] = [
+                'id' => $category->id,
+                'name' => $category->name,
+                'parent_id' => $category->parent_id,
+                'level' => 0,
+                'is_parent' => false,
+                'has_children' => false,
+                'direct_quantity' => 0,
+                'direct_revenue' => 0,
+                'total_quantity' => 0,
+                'total_revenue' => 0,
+                'children' => []
+            ];
+        }
+        
+        // Add sales data
+        foreach ($flatSales as $sale) {
+            if (isset($categoryMap[$sale->category_id])) {
+                $categoryMap[$sale->category_id]['direct_quantity'] = $sale->total_quantity;
+                $categoryMap[$sale->category_id]['direct_revenue'] = $sale->total_price;
+                $categoryMap[$sale->category_id]['total_quantity'] = $sale->total_quantity;
+                $categoryMap[$sale->category_id]['total_revenue'] = $sale->total_price;
+            }
+        }
+        
+        // Build hierarchy and calculate levels
+        $hierarchy = [];
+        foreach ($categoryMap as $id => &$category) {
+            if ($category['parent_id'] && isset($categoryMap[$category['parent_id']])) {
+                $categoryMap[$category['parent_id']]['children'][] = &$category;
+                $categoryMap[$category['parent_id']]['has_children'] = true;
+                $categoryMap[$category['parent_id']]['is_parent'] = true;
+                $category['level'] = $categoryMap[$category['parent_id']]['level'] + 1;
+            } else {
+                $hierarchy[] = &$category;
+            }
+        }
+        
+        // Aggregate totals up the hierarchy
+        $this->aggregateParentTotals($hierarchy);
+        
+        return $hierarchy;
+    }
+
+    /**
+     * Recursively aggregate totals from children to parents
+     */
+    private function aggregateParentTotals(&$categories)
+    {
+        foreach ($categories as &$category) {
+            if (!empty($category['children'])) {
+                $this->aggregateParentTotals($category['children']);
+                
+                // Add children totals to parent
+                foreach ($category['children'] as $child) {
+                    $category['total_quantity'] += $child['total_quantity'];
+                    $category['total_revenue'] += $child['total_revenue'];
+                }
+            }
+        }
+    }
+
+    /**
+     * Flatten hierarchy for chart display
+     */
+    private function flattenHierarchyForChart($hierarchy, $includeChildren = false)
+    {
+        $flat = [];
+        
+        foreach ($hierarchy as $category) {
+            $flat[] = [
+                'name' => $category['name'],
+                'quantity' => $category['total_quantity'],
+                'revenue' => $category['total_revenue']
+            ];
+            
+            if ($includeChildren && !empty($category['children'])) {
+                $childrenFlat = $this->flattenHierarchyForChart($category['children'], true);
+                foreach ($childrenFlat as $child) {
+                    $child['name'] = '  ' . $child['name']; // Indent for visual hierarchy
+                    $flat[] = $child;
+                }
+            }
+        }
+        
+        return collect($flat);
+    }
+
+    /**
+     * Get all category IDs including their children
+     */
+    private function getAllCategoryIdsWithChildren($categoryIds, $allCategories)
+    {
+        $allIds = $categoryIds;
+        $categoryMap = $allCategories->keyBy('id');
+        
+        foreach ($categoryIds as $categoryId) {
+            $this->collectChildrenIds($categoryId, $categoryMap, $allIds);
+        }
+        
+        return array_unique($allIds);
+    }
+
+    /**
+     * Recursively collect children IDs
+     */
+    private function collectChildrenIds($parentId, $categoryMap, &$allIds)
+    {
+        foreach ($categoryMap as $category) {
+            if ($category->parent_id == $parentId) {
+                $allIds[] = $category->id;
+                $this->collectChildrenIds($category->id, $categoryMap, $allIds);
+            }
+        }
+    }
+
+    /**
+     * Get category level in hierarchy
+     */
+    private function getCategoryLevel($category, $categoryMap)
+    {
+        $level = 0;
+        $currentCategory = $category;
+        
+        while ($currentCategory && $currentCategory->parent_id) {
+            $level++;
+            $currentCategory = $categoryMap->get($currentCategory->parent_id);
+        }
+        
+        return $level;
+    }
+
+    /**
+     * Get full category path
+     */
+    private function getCategoryPath($category, $categoryMap)
+    {
+        $path = [];
+        $currentCategory = $category;
+        
+        while ($currentCategory) {
+            array_unshift($path, $currentCategory->name);
+            $currentCategory = $currentCategory->parent_id ? $categoryMap->get($currentCategory->parent_id) : null;
+        }
+        
+        return implode(' > ', $path);
     }
 }

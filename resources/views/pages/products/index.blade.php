@@ -101,7 +101,17 @@
 
                                                 <td>{{ $product->name }}
                                                 </td>
-                                                <td>{{ $product->category->name ?? '-' }}</td>
+                                                <td>
+                                                    @if($product->category)
+                                                        @if($product->category->parent_id)
+                                                            <small class="text-muted">{{ $product->category->full_path }}</small>
+                                                        @else
+                                                            {{ $product->category->name }}
+                                                        @endif
+                                                    @else
+                                                        -
+                                                    @endif
+                                                </td>
                                                 @php
                                                     $basePrice = (int) ($product->default_price ?? $product->price ?? 0);
                                                     $activeRule = method_exists($product, 'activeDiscountRule') ? $product->activeDiscountRule() : null;

@@ -18,25 +18,58 @@ class CategoryController extends Controller
         $context = $this->resolveOutletContext();
 
         $perPage = (int) $request->input('per_page', 10);
+        $viewMode = $request->input('view_mode', 'tree'); // 'tree' or 'flat'
 
-        $categories = Category::query()
-            ->whereIn('user_id', $context['owner_user_ids'])
-            ->when($this->shouldFilterCategories($context['accessible_category_ids']), function ($query) use ($context) {
-                $query->whereIn('id', $context['accessible_category_ids']);
-            })
-            ->when(($context['is_partner'] ?? false) && empty($context['accessible_category_ids']), function ($query) {
-                $query->whereRaw('0 = 1');
-            })
-            ->when($request->input('name'), function ($query, $name) {
-                $query->where('name', 'like', '%' . $name . '%');
-            })
-            ->orderBy('created_at', 'desc')
-            ->paginate($perPage);
+        if ($viewMode === 'tree') {
+            // Get hierarchical tree structure
+            $categories = Category::query()
+                ->whereIn('user_id', $context['owner_user_ids'])
+                ->when($this->shouldFilterCategories($context['accessible_category_ids']), function ($query) use ($context) {
+                    $query->whereIn('id', $context['accessible_category_ids']);
+                })
+                ->when(($context['is_partner'] ?? false) && empty($context['accessible_category_ids']), function ($query) {
+                    $query->whereRaw('0 = 1');
+                })
+                ->when($request->input('name'), function ($query, $name) {
+                    $query->where('name', 'like', '%' . $name . '%');
+                })
+                ->root()
+                ->with(['children' => function ($query) use ($context) {
+                    $query->whereIn('user_id', $context['owner_user_ids'])
+                        ->when($this->shouldFilterCategories($context['accessible_category_ids']), function ($q) use ($context) {
+                            $q->whereIn('id', $context['accessible_category_ids']);
+                        })
+                        ->with(['children' => function ($q) use ($context) {
+                            $q->whereIn('user_id', $context['owner_user_ids'])
+                                ->when($this->shouldFilterCategories($context['accessible_category_ids']), function ($query) use ($context) {
+                                    $query->whereIn('id', $context['accessible_category_ids']);
+                                });
+                        }]);
+                }])
+                ->orderBy('name')
+                ->get();
+        } else {
+            // Flat view (original behavior)
+            $categories = Category::query()
+                ->whereIn('user_id', $context['owner_user_ids'])
+                ->when($this->shouldFilterCategories($context['accessible_category_ids']), function ($query) use ($context) {
+                    $query->whereIn('id', $context['accessible_category_ids']);
+                })
+                ->when(($context['is_partner'] ?? false) && empty($context['accessible_category_ids']), function ($query) {
+                    $query->whereRaw('0 = 1');
+                })
+                ->when($request->input('name'), function ($query, $name) {
+                    $query->where('name', 'like', '%' . $name . '%');
+                })
+                ->orderBy('created_at', 'desc')
+                ->paginate($perPage);
+        }
 
         return view('pages.categories.index', [
             'categories' => $categories,
             'canManageCategories' => $context['can_manage_categories'],
             'activeOutlet' => $context['outlet'],
+            'viewMode' => $viewMode,
         ]);
     }
 
@@ -51,7 +84,17 @@ class CategoryController extends Controller
             ]);
         }
 
-        return view('pages.categories.create');
+        // Get parent categories for dropdown
+        $parentCategories = Category::query()
+            ->whereIn('user_id', $context['owner_user_ids'])
+            ->when($this->shouldFilterCategories($context['accessible_category_ids']), function ($query) use ($context) {
+                $query->whereIn('id', $context['accessible_category_ids']);
+            })
+            ->root()
+            ->orderBy('name')
+            ->get();
+
+        return view('pages.categories.create', compact('parentCategories'));
     }
 
 
@@ -77,10 +120,24 @@ class CategoryController extends Controller
                         ->whereNull('deleted_at');
                 }),
             ],
+            'parent_id' => 'nullable|exists:categories,id',
         ]);
+
+        // Validate parent category to prevent circular reference
+        if ($request->filled('parent_id')) {
+            $parentCategory = Category::find($request->parent_id);
+            if (!$parentCategory || !$this->isValidParentCategory($request->parent_id, null, $context)) {
+                return redirect()->back()
+                    ->withInput()
+                    ->withErrors(['parent_id' => 'Invalid parent category selected.']);
+            }
+        }
         $category = new Category();
         $category->name = $request->name;
         $category->user_id = $userId;
+        $category->outlet_id = optional($context['outlet'])->id;
+        $category->parent_id = $request->parent_id;
+        
         if ($request->hasFile('image')) {
             $filename = time() . '.' . $request->image->extension();
             $request->image->storeAs('public/categories', $filename);
@@ -97,12 +154,15 @@ class CategoryController extends Controller
         $this->ensureCanManageCategories($context);
 
         $category = Category::findOrFail($id);
-        return view('pages.categories.edit', compact('category'));
+        
+        // Get parent categories for dropdown (exclude current category and its descendants)
+        $parentCategories = Category::getFlattenedList(null, '', $category->id);
+        
+        return view('pages.categories.edit', compact('category', 'parentCategories'));
     }
 
     public function update(Request $request, $id)
     {
-
         $context = $this->resolveOutletContext();
         $this->ensureCanManageCategories($context);
 
@@ -118,10 +178,22 @@ class CategoryController extends Controller
                             ->whereNull('deleted_at');
                     }),
             ],
+            'parent_id' => 'nullable|exists:categories,id',
         ]);
+
+        // Validate parent category to prevent circular reference
+        if ($request->filled('parent_id')) {
+            if (!$this->isValidParentCategory($request->parent_id, $id, $context)) {
+                return redirect()->back()
+                    ->withInput()
+                    ->withErrors(['parent_id' => 'Invalid parent category selected. Cannot create circular reference.']);
+            }
+        }
         $category = Category::findOrFail($id);
 
         $category->name = $request->name;
+        $category->parent_id = $request->parent_id;
+        
         if ($request->hasFile('image')) {
             Storage::delete('public/categories/' . $category->image);
             $filename = time() . '.' . $request->image->extension();
@@ -228,5 +300,39 @@ class CategoryController extends Controller
         if (! $context['can_manage_categories']) {
             abort(403, 'Hanya owner outlet yang dapat mengelola kategori.');
         }
+    }
+
+    /**
+     * Validate parent category to prevent circular reference and ensure proper access
+     */
+    private function isValidParentCategory($parentId, $excludeId = null, $context = null): bool
+    {
+        if (!$context) {
+            $context = $this->resolveOutletContext();
+        }
+
+        $parentCategory = Category::find($parentId);
+        
+        // Check if parent exists and user has access
+        if (!$parentCategory || !in_array($parentCategory->user_id, $context['owner_user_ids'])) {
+            return false;
+        }
+
+        // Check if parent is accessible (for partners)
+        if ($this->shouldFilterCategories($context['accessible_category_ids'])) {
+            if (!in_array($parentId, $context['accessible_category_ids'])) {
+                return false;
+            }
+        }
+
+        // Check for circular reference
+        if ($excludeId) {
+            $category = Category::find($excludeId);
+            if ($category && !$category->isValidParent($parentId)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

@@ -30,6 +30,55 @@
     <link rel="stylesheet" href="{{ asset('library/datatables/media/css/jquery.dataTables.css') }}">
     <link rel="stylesheet" href="{{ asset('library/select2/dist/css/select2.min.css') }}">
     <link rel="stylesheet" href="{{ asset('library/bootstrap-daterangepicker/daterangepicker.css') }}">
+    <style>
+        /* Category hierarchy styling */
+        .category-row.parent-row {
+            font-weight: 600;
+        }
+        
+        .subcategory-row {
+            background-color: #f8f9fa !important;
+            font-size: 0.95em;
+        }
+        
+        .subcategory-row:hover {
+            background-color: #e9ecef !important;
+        }
+        
+        .toggle-children {
+            transition: transform 0.2s ease;
+        }
+        
+        .toggle-children:hover {
+            transform: scale(1.1);
+        }
+        
+        .toggle-children i {
+            transition: transform 0.2s ease;
+        }
+        
+        /* Better indentation for hierarchy */
+        .category-row td:nth-child(2),
+        .subcategory-row td:nth-child(2) {
+            position: relative;
+        }
+        
+        /* Add subtle borders for hierarchy */
+        .subcategory-row {
+            border-left: 3px solid #dee2e6;
+        }
+        
+        .subcategory-row.child-of- {
+            border-left-color: #007bff;
+        }
+        
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .subcategory-row {
+                font-size: 0.9em;
+            }
+        }
+    </style>
 @endpush
 
 @section('main')
@@ -244,33 +293,94 @@
                             <table id="categoryTable" class="table table-striped table-bordered text-center">
                                 <thead>
                                     <tr>
-                                        <th>No</th>
+                                        <th width="40"></th>
                                         <th>Category</th>
                                         <th>Total Quantity</th>
                                         <th>Total Price</th>
+                                        <th>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @foreach($categorySales as $row)
-                                        <tr>
-                                            <td>{{ $loop->iteration }}</td>
-                                            <td>{{ $row->category_name }}</td>
+                                    @php($counter = 1)
+                                    @foreach($categorySales as $category)
+                                        <tr class="category-row" data-category-id="{{ $category['id'] }}" data-level="{{ $category['level'] }}">
+                                            <td>
+                                                @if($category['has_children'])
+                                                    <button class="btn btn-sm btn-link p-0 toggle-children" title="Expand/Collapse">
+                                                        <i class="fas fa-chevron-right"></i>
+                                                    </button>
+                                                @endif
+                                            </td>
+                                            <td class="text-left">
+                                                @if($category['level'] > 0)
+                                                    @for($i = 0; $i < $category['level']; $i++)
+                                                        <span class="ml-3"></span>
+                                                    @endfor
+                                                @endif
+                                                <strong>{{ $category['name'] }}</strong>
+                                                @if($category['is_parent'])
+                                                    <span class="badge badge-info ml-2">Parent</span>
+                                                @endif
+                                            </td>
                                             <td>
                                                 <a href="#"
                                                    class="js-cat-details"
                                                    data-url="{{ route('report.byCategory.items', [
                                                         'date_from' => $date_from,
                                                         'date_to' => $date_to,
-                                                        'category_id' => $row->category_id,
+                                                        'category_id' => $category['id'],
                                                         'payment_method' => $paymentMethod,
                                                         'user_id' => $userId,
                                                    ]) }}"
                                                    title="Lihat detail transaksi untuk kategori ini">
-                                                    {{ $row->total_quantity }}
+                                                    {{ $category['total_quantity'] }}
                                                 </a>
+                                                @if($category['direct_quantity'] != $category['total_quantity'])
+                                                    <small class="text-muted d-block">({{ $category['direct_quantity'] }} direct)</small>
+                                                @endif
                                             </td>
-                                            <td>{{ number_format($row->total_price, 0, ',', '.') }}</td>
+                                            <td>
+                                                {{ number_format($category['total_revenue'], 0, ',', '.') }}
+                                                @if($category['direct_revenue'] != $category['total_revenue'])
+                                                    <small class="text-muted d-block">({{ number_format($category['direct_revenue'], 0, ',', '.') }} direct)</small>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                <!-- Actions column kept for consistency but no duplicate button -->
+                                            </td>
                                         </tr>
+                                        
+                                        <!-- Subcategories (hidden by default) -->
+                                        @if(!empty($category['children']))
+                                            @foreach($category['children'] as $child)
+                                                @php($counter++)
+                                                <tr class="subcategory-row child-of-{{ $category['id'] }}" data-category-id="{{ $child['id'] }}" data-level="{{ $child['level'] }}" style="display:none;">
+                                                    <td></td>
+                                                    <td class="text-left">
+                                                        @for($i = 0; $i < $child['level']; $i++)
+                                                            <span class="ml-3"></span>
+                                                        @endfor
+                                                        {{ $child['name'] }}
+                                                    </td>
+                                                    <td>
+                                                        <a href="#"
+                                                           class="js-cat-details"
+                                                           data-url="{{ route('report.byCategory.items', [
+                                                                'date_from' => $date_from,
+                                                                'date_to' => $date_to,
+                                                                'category_id' => $child['id'],
+                                                                'payment_method' => $paymentMethod,
+                                                                'user_id' => $userId,
+                                                           ]) }}"
+                                                           title="Lihat detail transaksi untuk subkategori ini">
+                                                            {{ $child['total_quantity'] }}
+                                                        </a>
+                                                    </td>
+                                                    <td>{{ number_format($child['total_revenue'], 0, ',', '.') }}</td>
+                                                    <td></td>
+                                                </tr>
+                                            @endforeach
+                                        @endif
                                     @endforeach
                                 </tbody>
                                 <tfoot>
@@ -279,6 +389,7 @@
                                         <th></th>
                                         <th id="ftQtyCat"></th>
                                         <th id="ftRevCat"></th>
+                                        <th></th>
                                     </tr>
                                 </tfoot>
                             </table>
@@ -564,10 +675,12 @@
                 const summaryRows = [];
                 document.querySelectorAll('#categoryTable tbody tr').forEach((tr, idx)=>{
                     const tds = tr.querySelectorAll('td');
-                    if(tds.length >= 4){
+                    if(tds.length >= 5){
+                        const level = parseInt(tr.dataset.level) || 0;
+                        const categoryName = level > 0 ? '  '.repeat(level) + tds[1].textContent.trim() : tds[1].textContent.trim();
                         summaryRows.push([
                             String(idx + 1),
-                            tds[1].textContent.trim(),
+                            categoryName,
                             tds[2].textContent.trim(),
                             tds[3].textContent.trim()
                         ]);
@@ -650,7 +763,13 @@
         function renderCatModal(payload){
             const wrap=document.getElementById('catDetailsModal'); if(!wrap) return;
             catDetailsLastPayload = payload;
-            document.getElementById('cdTitle').textContent = (payload.category_name||'Kategori') + ` — ${payload.date_from||''} s/d ${payload.date_to||''}`;
+            
+            // Display category path if available
+            const displayName = payload.items && payload.items.length > 0 && payload.items[0].category_path
+                ? payload.items[0].category_path
+                : (payload.category_name||'Kategori');
+                
+            document.getElementById('cdTitle').textContent = displayName + ` — ${payload.date_from||''} s/d ${payload.date_to||''}`;
             document.getElementById('cdTotalQty').textContent = formatIDR(payload.total_quantity||0);
             document.getElementById('cdTotalRev').textContent = formatIDR(payload.total_revenue||0);
 
@@ -699,6 +818,71 @@
             $('#catDetailsModal').modal('show');
         }
 
+        function initializeCategoryHierarchy() {
+            // Toggle children visibility
+            $(document).on('click', '.toggle-children', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const $button = $(this);
+                const $row = $button.closest('tr');
+                const categoryId = $row.data('category-id');
+                const $icon = $button.find('i');
+                
+                // Toggle child rows with smooth animation
+                const $childRows = $(`.child-of-${categoryId}`);
+                const isExpanded = $icon.hasClass('fa-chevron-down');
+                
+                if (isExpanded) {
+                    // Collapse
+                    $childRows.hide();
+                    $icon.removeClass('fa-chevron-down').addClass('fa-chevron-right');
+                } else {
+                    // Expand
+                    $childRows.show();
+                    $icon.removeClass('fa-chevron-right').addClass('fa-chevron-down');
+                }
+                
+                // Update chart to reflect visible rows
+                updateChartFromVisibleRows();
+            });
+            
+            // Add visual indicators for expandable rows
+            $('.category-row').each(function() {
+                const $row = $(this);
+                if ($row.find('.toggle-children').length > 0) {
+                    $row.addClass('parent-row');
+                }
+            });
+        }
+
+        function updateChartFromVisibleRows() {
+            if (!categoryChart) return;
+            
+            const qtyByLabel = {}, revByLabel = {};
+            
+            // Only count visible rows
+            $('#categoryTable tbody tr:visible').each(function() {
+                const $row = $(this);
+                const $cells = $row.find('td');
+                if ($cells.length >= 4) {
+                    const label = $cells.eq(1).text().trim();
+                    const qtyText = $cells.eq(2).find('a').text() || $cells.eq(2).text();
+                    const qty = parseInt(qtyText) || 0;
+                    const rev = parseCurrency($cells.eq(3).text());
+                    
+                    qtyByLabel[label] = (qtyByLabel[label] || 0) + qty;
+                    revByLabel[label] = (revByLabel[label] || 0) + rev;
+                }
+            });
+            
+            const labels = Object.keys(qtyByLabel);
+            categoryChart.data.labels = labels;
+            categoryChart.data.datasets[0].data = labels.map(l => qtyByLabel[l]);
+            categoryChart.data.datasets[1].data = labels.map(l => revByLabel[l]);
+            categoryChart.update('none');
+        }
+
         $(function(){
             initDateRangePickerCat();
             // Initialize Select2 for category multi-select and payment method if available
@@ -716,16 +900,34 @@
             }
             loadPrefs('report_by_category_filters');
             syncDateRangePickerCat();
-            const dt = $('#categoryTable').DataTable({ paging:true, info:true });
-            function updateChart(){ if(!categoryChart) return; const qtyByLabel={}, revByLabel={};
-                dt.rows({ search:'applied' }).every(function(){ const $r=$(this.node()); const tds=$r.find('td'); const label=$(tds.get(1)).text().trim(); const qty=parseInt($(tds.get(2)).text())||0; const rev=parseCurrency($(tds.get(3)).text()); qtyByLabel[label]=(qtyByLabel[label]||0)+qty; revByLabel[label]=(revByLabel[label]||0)+rev; });
-                const labels = Object.keys(qtyByLabel);
-                categoryChart.data.labels = labels;
-                categoryChart.data.datasets[0].data = labels.map(l=>qtyByLabel[l]);
-                categoryChart.data.datasets[1].data = labels.map(l=>revByLabel[l]);
-                categoryChart.update('none');
-                // footer totals
-                let tq=0, tr=0; dt.rows({search:'applied'}).every(function(){ const tds=$(this.node()).find('td'); tq+=parseInt($(tds.get(2)).text())||0; tr+=parseCurrency($(tds.get(3)).text()); });
+            
+            // Initialize category hierarchy
+            initializeCategoryHierarchy();
+            
+            const dt = $('#categoryTable').DataTable({
+                paging:true,
+                info:true,
+                ordering:false,
+                columnDefs: [
+                    { orderable: false, targets: [0, 4] }
+                ]
+            });
+            function updateChart(){
+                if(!categoryChart) return;
+                // Use the same logic as updateChartFromVisibleRows to ensure consistency
+                updateChartFromVisibleRows();
+                
+                // Update footer totals
+                let tq=0, tr=0;
+                $('#categoryTable tbody tr:visible').each(function(){
+                    const $row = $(this);
+                    const $cells = $row.find('td');
+                    if ($cells.length >= 4) {
+                        const qtyText = $cells.eq(2).find('a').text() || $cells.eq(2).text();
+                        tq += parseInt(qtyText) || 0;
+                        tr += parseCurrency($cells.eq(3).text());
+                    }
+                });
                 // Show grand total as plain text (no detail click on grand total)
                 $('#ftQtyCat').text(tq.toLocaleString('id-ID'));
                 $('#ftRevCat').text(tr.toLocaleString('id-ID'));

@@ -42,13 +42,34 @@
                                     class="form-control @error('name')
                                 is-invalid
                             @enderror"
-                                    name="name">
+                                    name="name" value="{{ old('name') }}">
                                 @error('name')
                                     <div class="invalid-feedback">
                                         {{ $message }}
                                     </div>
                                 @enderror
                             </div>
+                            
+                            <div class="form-group">
+                                <label>Parent Category</label>
+                                <select name="parent_id" class="form-control @error('parent_id') is-invalid @enderror">
+                                    <option value="">Main Category (No Parent)</option>
+                                    @if(isset($parentCategories))
+                                        @foreach($parentCategories as $category)
+                                            <option value="{{ $category->id }}" {{ old('parent_id') == $category->id ? 'selected' : '' }}>
+                                                {{ $category->name }}
+                                            </option>
+                                        @endforeach
+                                    @endif
+                                </select>
+                                @error('parent_id')
+                                    <div class="invalid-feedback">
+                                        {{ $message }}
+                                    </div>
+                                @enderror
+                                <small class="form-text text-muted">Select a parent category to create a subcategory, or leave empty for a main category.</small>
+                            </div>
+                            
                             <div class="form-group">
                                 <label>Image</label>
                                 <div class="col-sm-9">
