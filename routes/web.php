@@ -114,6 +114,10 @@ Route::middleware(['auth'])->group(function () {
         Route::get('product/{product}/request-edit', [\App\Http\Controllers\ProductController::class, 'requestEdit'])->name('product.request.edit');
         Route::post('product/{product}/request-update', [\App\Http\Controllers\ProductController::class, 'requestUpdate'])->name('product.request.update');
         Route::post('product/{product}/request-delete', [\App\Http\Controllers\ProductController::class, 'requestDelete'])->name('product.request.delete');
+        
+        // Quick action routes
+        Route::post('product/{product}/quick-update-price', [\App\Http\Controllers\ProductController::class, 'quickUpdatePrice'])->name('product.quick-update-price');
+        Route::post('product/{product}/quick-update-category', [\App\Http\Controllers\ProductController::class, 'quickUpdateCategory'])->name('product.quick-update-category');
         // Removed product wizard routes (no wizard/recipe/review forms)
         Route::resource('order', \App\Http\Controllers\OrderController::class);
         Route::get('/order/{id}/details-json', [\App\Http\Controllers\OrderController::class, 'showJson'])->name('order.details_json');

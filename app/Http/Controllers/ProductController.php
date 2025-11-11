@@ -841,4 +841,76 @@ class ProductController extends Controller
             ->orderBy('name')
             ->get();
     }
+
+    /**
+     * Quick update product price via AJAX
+     */
+    public function quickUpdatePrice(Request $request, $id)
+    {
+        $context = $this->resolveOutletContext();
+        $this->ensureCanManageProducts($context);
+
+        $userId = auth()->id();
+        $product = Product::where('user_id', $userId)->findOrFail($id);
+
+        $validated = $request->validate([
+            'price' => ['required', 'numeric', 'min:0', 'max:999999999'],
+        ]);
+
+        DB::transaction(function () use ($product, $validated) {
+            $product->price = (float) $validated['price'];
+            $product->sync_status = 'pending';
+            $product->last_synced = null;
+            $product->client_version = 'web';
+            $product->version_id = (int) $product->version_id + 1;
+            $product->save();
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Harga produk berhasil diperbarui.',
+            'data' => [
+                'price' => $product->price,
+                'formatted_price' => number_format($product->price, 0, ',', '.'),
+            ]
+        ]);
+    }
+
+    /**
+     * Quick update product category via AJAX
+     */
+    public function quickUpdateCategory(Request $request, $id)
+    {
+        $context = $this->resolveOutletContext();
+        $this->ensureCanManageProducts($context);
+
+        $userId = auth()->id();
+        $product = Product::where('user_id', $userId)->findOrFail($id);
+
+        $validated = $request->validate([
+            'category_id' => ['required', 'integer', Rule::exists('categories', 'id')
+                ->where(fn ($q) => $q->where('user_id', $userId)->whereNull('deleted_at'))],
+        ]);
+
+        $category = Category::where('user_id', $userId)->findOrFail($validated['category_id']);
+
+        DB::transaction(function () use ($product, $validated, $category) {
+            $product->category_id = (int) $validated['category_id'];
+            $product->sync_status = 'pending';
+            $product->last_synced = null;
+            $product->client_version = 'web';
+            $product->version_id = (int) $product->version_id + 1;
+            $product->save();
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Kategori produk berhasil diperbarui.',
+            'data' => [
+                'category_id' => $product->category_id,
+                'category_name' => $category->name,
+                'category_full_path' => $category->parent_id ? $category->full_path : $category->name,
+            ]
+        ]);
+    }
 }

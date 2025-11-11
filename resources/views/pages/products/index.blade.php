@@ -5,6 +5,27 @@
 @push('style')
     <!-- CSS Libraries -->
     <link rel="stylesheet" href="{{ asset('library/selectric/public/selectric.css') }}">
+    
+    <style>
+        .quick-action-btn {
+            transition: all 0.2s ease;
+        }
+        .quick-action-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .modal .form-control-plaintext {
+            padding: 0.375rem 0;
+        }
+        .modal .input-group-text {
+            background-color: #f8f9fa;
+            border-color: #ced4da;
+        }
+        .quick-loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+    </style>
 @endpush
 
 @section('main')
@@ -221,16 +242,35 @@
                                                 <td>{{ $product->created_at }}</td>
                                                 <td>
                                                     @if($canManageProducts ?? false)
-                                                        <div class="d-flex flex-wrap justify-content-center">
+                                                        <div class="d-flex flex-wrap justify-content-center gap-1">
+                                                            <!-- Quick Actions -->
+                                                            <div class="btn-group btn-group-sm mb-2" role="group" aria-label="Quick Actions">
+                                                                <button type="button" class="btn btn-warning js-quick-edit-price quick-action-btn" 
+                                                                        data-product-id="{{ $product->id }}" 
+                                                                        data-product-name="{{ $product->name }}"
+                                                                        data-current-price="{{ $basePrice }}"
+                                                                        title="Edit Harga">
+                                                                    <i class="fas fa-money-bill-wave"></i>
+                                                                </button>
+                                                                <button type="button" class="btn btn-success js-quick-edit-category quick-action-btn" 
+                                                                        data-product-id="{{ $product->id }}" 
+                                                                        data-product-name="{{ $product->name }}"
+                                                                        data-current-category="{{ $product->category->id ?? '' }}"
+                                                                        data-current-category-name="{{ $product->category->name ?? '' }}"
+                                                                        title="Edit Kategori">
+                                                                    <i class="fas fa-folder"></i>
+                                                                </button>
+                                                            </div>
+                                                            <!-- Standard Actions -->
                                                             <div class="btn-group btn-group-sm mb-2" role="group" aria-label="CRUD Actions">
                                                                 <a href='{{ route('product.edit', $product->id) }}' class="btn btn-info">
-                                                                    <i class="fas fa-edit"></i> Edit
+                                                                    <i class="fas fa-edit"></i>
                                                                 </a>
                                                                 <form action="{{ route('product.destroy', $product->id) }}" method="POST" class="js-product-delete-form" data-name="{{ $product->name }}">
                                                                     @csrf
                                                                     @method('DELETE')
                                                                     <button class="btn btn-danger">
-                                                                        <i class="fas fa-times"></i> Delete
+                                                                        <i class="fas fa-times"></i>
                                                                     </button>
                                                                 </form>
                                                             </div>
@@ -270,6 +310,99 @@
             </div>
         </section>
     </div>
+
+    <!-- Quick Edit Price Modal -->
+    <div class="modal fade" id="quickEditPriceModal" tabindex="-1" role="dialog" aria-labelledby="quickEditPriceModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="quickEditPriceModalLabel">
+                        <i class="fas fa-money-bill-wave"></i> Edit Harga Produk
+                    </h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <form id="quickEditPriceForm">
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="productName" class="font-weight-bold">Nama Produk:</label>
+                            <p id="productName" class="form-control-plaintext text-primary"></p>
+                        </div>
+                        <div class="form-group">
+                            <label for="currentPrice" class="font-weight-bold">Harga Saat Ini:</label>
+                            <p id="currentPrice" class="form-control-plaintext text-muted"></p>
+                        </div>
+                        <div class="form-group">
+                            <label for="newPrice" class="font-weight-bold">Harga Baru:</label>
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text">Rp</span>
+                                </div>
+                                <input type="number" class="form-control" id="newPrice" name="price" 
+                                       step="0.01" min="0" max="999999999" required>
+                                <div class="input-group-append">
+                                    <span class="input-group-text">.00</span>
+                                </div>
+                            </div>
+                            <small class="form-text text-muted">Masukkan harga baru tanpa titik atau koma.</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-warning">
+                            <i class="fas fa-save"></i> Simpan Harga
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Edit Category Modal -->
+    <div class="modal fade" id="quickEditCategoryModal" tabindex="-1" role="dialog" aria-labelledby="quickEditCategoryModalLabel" aria-hidden="true">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="quickEditCategoryModalLabel">
+                        <i class="fas fa-folder"></i> Edit Kategori Produk
+                    </h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <form id="quickEditCategoryForm">
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="categoryProductName" class="font-weight-bold">Nama Produk:</label>
+                            <p id="categoryProductName" class="form-control-plaintext text-primary"></p>
+                        </div>
+                        <div class="form-group">
+                            <label for="currentCategory" class="font-weight-bold">Kategori Saat Ini:</label>
+                            <p id="currentCategory" class="form-control-plaintext text-muted"></p>
+                        </div>
+                        <div class="form-group">
+                            <label for="newCategory" class="font-weight-bold">Kategori Baru:</label>
+                            <select class="form-control" id="newCategory" name="category_id" required>
+                                <option value="">-- Pilih Kategori --</option>
+                                @isset($categories)
+                                    @foreach ($categories as $category)
+                                        <option value="{{ $category->id }}">{{ $category->name }}</option>
+                                    @endforeach
+                                @endisset
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-save"></i> Simpan Kategori
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @push('scripts')
@@ -285,6 +418,224 @@
                 $('[data-toggle="tooltip"]').tooltip();
             }
 
+            // Quick Edit Price Modal
+            const quickEditPriceModal = document.getElementById('quickEditPriceModal');
+            const quickEditPriceForm = document.getElementById('quickEditPriceForm');
+            let currentProductId = null;
+            let currentProductRow = null;
+
+            // Quick Edit Category Modal
+            const quickEditCategoryModal = document.getElementById('quickEditCategoryModal');
+            const quickEditCategoryForm = document.getElementById('quickEditCategoryForm');
+
+            // Price edit button clicks
+            document.querySelectorAll('.js-quick-edit-price').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    const productId = this.dataset.productId;
+                    const productName = this.dataset.productName;
+                    const currentPrice = this.dataset.currentPrice;
+
+                    currentProductId = productId;
+                    currentProductRow = this.closest('tr');
+
+                    // Populate modal
+                    document.getElementById('productName').textContent = productName;
+                    document.getElementById('currentPrice').textContent = 'Rp ' + Number(currentPrice).toLocaleString('id-ID');
+                    document.getElementById('newPrice').value = currentPrice;
+
+                    // Show modal
+                    if (window.$) {
+                        $('#quickEditPriceModal').modal('show');
+                    } else {
+                        quickEditPriceModal.style.display = 'block';
+                        quickEditPriceModal.classList.add('show');
+                    }
+                });
+            });
+
+            // Category edit button clicks
+            document.querySelectorAll('.js-quick-edit-category').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    const productId = this.dataset.productId;
+                    const productName = this.dataset.productName;
+                    const currentCategoryId = this.dataset.currentCategory;
+                    const currentCategoryName = this.dataset.currentCategoryName;
+
+                    currentProductId = productId;
+                    currentProductRow = this.closest('tr');
+
+                    // Populate modal
+                    document.getElementById('categoryProductName').textContent = productName;
+                    document.getElementById('currentCategory').textContent = currentCategoryName || '-';
+                    document.getElementById('newCategory').value = currentCategoryId;
+
+                    // Show modal
+                    if (window.$) {
+                        $('#quickEditCategoryModal').modal('show');
+                    } else {
+                        quickEditCategoryModal.style.display = 'block';
+                        quickEditCategoryModal.classList.add('show');
+                    }
+                });
+            });
+
+            // Quick Edit Price Form Submission
+            quickEditPriceForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                const formData = new FormData(this);
+                const submitBtn = this.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+
+                // Show loading state
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
+
+                fetch(`{{ route('product.quick-update-price', ':id') }}`.replace(':id', currentProductId), {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}',
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        price: formData.get('price')
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update price in table
+                        const priceCell = currentProductRow.querySelector('td:nth-child(3)');
+                        priceCell.innerHTML = data.data.formatted_price;
+
+                        // Show success message
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: data.message,
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+
+                        // Close modal
+                        if (window.$) {
+                            $('#quickEditPriceModal').modal('hide');
+                        } else {
+                            quickEditPriceModal.style.display = 'none';
+                            quickEditPriceModal.classList.remove('show');
+                        }
+
+                        // Reset form
+                        quickEditPriceForm.reset();
+                    } else {
+                        throw new Error(data.message || 'Terjadi kesalahan');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error!',
+                        text: error.message || 'Terjadi kesalahan saat memperbarui harga.'
+                    });
+                })
+                .finally(() => {
+                    // Reset button state
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                });
+            });
+
+            // Quick Edit Category Form Submission
+            quickEditCategoryForm.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                const formData = new FormData(this);
+                const submitBtn = this.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+
+                // Show loading state
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menyimpan...';
+
+                fetch(`{{ route('product.quick-update-category', ':id') }}`.replace(':id', currentProductId), {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '{{ csrf_token() }}',
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        category_id: formData.get('category_id')
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update category in table
+                        const categoryCell = currentProductRow.querySelector('td:nth-child(2)');
+                        if (data.data.category_full_path) {
+                            categoryCell.innerHTML = `<small class="text-muted">${data.data.category_full_path}</small>`;
+                        } else {
+                            categoryCell.innerHTML = data.data.category_name;
+                        }
+
+                        // Update category button data
+                        const categoryBtn = currentProductRow.querySelector('.js-quick-edit-category');
+                        categoryBtn.dataset.currentCategory = data.data.category_id;
+                        categoryBtn.dataset.currentCategoryName = data.data.category_name;
+
+                        // Show success message
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'Berhasil!',
+                            text: data.message,
+                            timer: 2000,
+                            showConfirmButton: false
+                        });
+
+                        // Close modal
+                        if (window.$) {
+                            $('#quickEditCategoryModal').modal('hide');
+                        } else {
+                            quickEditCategoryModal.style.display = 'none';
+                            quickEditCategoryModal.classList.remove('show');
+                        }
+
+                        // Reset form
+                        quickEditCategoryForm.reset();
+                    } else {
+                        throw new Error(data.message || 'Terjadi kesalahan');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error!',
+                        text: error.message || 'Terjadi kesalahan saat memperbarui kategori.'
+                    });
+                })
+                .finally(() => {
+                    // Reset button state
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                });
+            });
+
+            // Reset forms when modals are hidden
+            if (window.$) {
+                $('#quickEditPriceModal').on('hidden.bs.modal', function () {
+                    quickEditPriceForm.reset();
+                });
+
+                $('#quickEditCategoryModal').on('hidden.bs.modal', function () {
+                    quickEditCategoryForm.reset();
+                });
+            }
+
+            // Existing delete functionality
             document.querySelectorAll('.js-product-delete-form').forEach(function (form) {
                 form.addEventListener('submit', function (e) {
                     e.preventDefault();
