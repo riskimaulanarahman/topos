@@ -49,6 +49,16 @@
         berikut ringkasan singkat sesi kasir yang baru saja ditutup.
     </p>
 
+    @if(!empty($outlet))
+    <div style="margin-bottom: 16px;">
+        <div style="font-weight: 600; color: #111827; font-size: 15px; margin-bottom: 8px;">Informasi Outlet</div>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size: 14px; color: #374151;">
+            <tr><td style="padding: 4px 0; width: 45%;">Nama Outlet</td><td style="padding: 4px 0; font-weight: 600;">{{ $outlet['name'] ?? '-' }}</td></tr>
+            <tr><td style="padding: 4px 0;">Kode Outlet</td><td style="padding: 4px 0; font-weight: 600;">{{ $outlet['code'] ?? '-' }}</td></tr>
+        </table>
+    </div>
+    @endif
+
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 12px;">
         <tr>
             <td style="width: 33.333%; padding: 12px; border-radius: 12px; background: #FFF; border: 1px solid #E5E7EB;">

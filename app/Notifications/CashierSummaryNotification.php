@@ -26,6 +26,7 @@ class CashierSummaryNotification extends Notification implements ShouldQueue
     {
         $summary = $this->report->summary ?? [];
         $session = $summary['session'] ?? [];
+        $outlet = $summary['outlet'] ?? [];
         $totals = $summary['totals'] ?? [];
         $payments = $summary['payments'] ?? [];
         $transactions = $summary['transactions'] ?? [];
@@ -59,6 +60,7 @@ class CashierSummaryNotification extends Notification implements ShouldQueue
                 'logoUrl' => asset('img/toga-gold-ts.png'),
                 'report' => $this->report,
                 'session' => $session,
+                'outlet' => $outlet,
                 'totals' => $totals,
                 'payments' => $payments,
                 'transactions' => $transactions,

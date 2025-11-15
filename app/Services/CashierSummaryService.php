@@ -48,6 +48,12 @@ class CashierSummaryService
             ->whereBetween('created_at', [$start, $end])
             ->get();
 
+        // Get outlet information
+        $outlet = null;
+        if ($session->outlet_id) {
+            $outlet = $session->outlet;
+        }
+
         $nonRefundOrders = $orders->filter(fn ($order) => $order->status !== 'refund');
         $refundOrders = $orders->filter(fn ($order) => $order->status === 'refund');
 
@@ -113,6 +119,11 @@ class CashierSummaryService
                 'timezone' => $timezone,
                 'timezone_offset' => $timezoneOffset,
             ],
+            'outlet' => $outlet ? [
+                'id' => $outlet->id,
+                'name' => $outlet->name,
+                'code' => $outlet->code,
+            ] : null,
             'totals' => [
                 'sales' => $totalSales,
                 'refunds' => $refundTotal,
