@@ -47,6 +47,9 @@ class OrderController extends Controller
             'payment_method' => ['nullable', 'string'],
             'nominal_bayar' => ['nullable', 'numeric'],
             'outlet_id' => ['nullable', 'integer', Rule::exists('outlets', 'id')],
+            'table_number' => ['nullable', 'string'],
+            'order_number' => ['nullable', 'integer'],
+            'order_sequence' => ['nullable', 'integer'],
         ]);
 
         $user = $request->user();
@@ -71,6 +74,8 @@ class OrderController extends Controller
                 'discount_amount' => $totals['total_discount'],
                 'payment_method' => $request->input('payment_method', 'cash'),
                 'nominal_bayar' => $request->input('nominal_bayar'),
+                'table_number' => $request->input('table_number'),
+                'order_number' => $request->input('order_number', $request->input('order_sequence')),
             ]);
 
             foreach ($preparedItems as $payload) {
@@ -162,6 +167,9 @@ class OrderController extends Controller
             'orders.*.nominal_bayar' => ['nullable', 'numeric'],
             'orders.*.transaction_number' => ['nullable', 'string'],
             'orders.*.outlet_id' => ['nullable', 'integer', Rule::exists('outlets', 'id')],
+            'orders.*.table_number' => ['nullable', 'string'],
+            'orders.*.order_number' => ['nullable', 'integer'],
+            'orders.*.order_sequence' => ['nullable', 'integer'],
         ]);
 
         $user = $request->user();
@@ -197,6 +205,8 @@ class OrderController extends Controller
                     'last_synced' => now(),
                     'client_version' => $orderData['client_version'] ?? 'mobile',
                     'version_id' => 1,
+                    'table_number' => $orderData['table_number'] ?? null,
+                    'order_number' => $orderData['order_number'] ?? $orderData['order_sequence'] ?? null,
                 ]);
 
                 foreach ($preparedItems as $payload) {
@@ -995,6 +1005,8 @@ class OrderController extends Controller
             'sub_total' => $order->sub_total,
             'discount' => $order->discount,
             'discount_amount' => $order->discount_amount,
+            'table_number' => $order->table_number,
+            'order_number' => $order->order_number,
             'payment_method' => $order->payment_method,
             'created_at' => optional($order->created_at)->copy()->setTimezone('UTC')->toIso8601String(),
             'updated_at' => optional($order->updated_at)->copy()->setTimezone('UTC')->toIso8601String(),
